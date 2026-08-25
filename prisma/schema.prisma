@@ -1,0 +1,734 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --------------------------------------------------------
+// TENANCY, USERS & AUTHENTICATION
+// --------------------------------------------------------
+
+model Organization {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("ACTIVE") // ACTIVE, SUSPENDED, INACTIVE
+  defaultCurrency String   @default("NPR")
+  defaultTimezone String   @default("Asia/Kathmandu")
+  country         String   @default("Nepal")
+  logoUrl         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branches                Branch[]
+  users                   User[]
+  roles                   Role[]
+  customers               Customer[]
+  tags                    Tag[]
+  menuCategories          MenuCategory[]
+  menuItems               MenuItem[]
+  reservations            Reservation[]
+  waitlistEntries         WaitlistEntry[]
+  restaurantTables        RestaurantTable[]
+  loyaltyAccounts         LoyaltyAccount[]
+  loyaltyTiers            LoyaltyTier[]
+  rewards                 Reward[]
+  rewardRedemptions       RewardRedemption[]
+  loyaltySettings         LoyaltySettings?
+  feedback                Feedback[]
+  tasks                   Task[]
+  integrationConnections IntegrationConnection[]
+  importJobs              ImportJob[]
+  auditLogs               AuditLog[]
+  settings                OrganizationSettings?
+  digitalMenuSettings     DigitalMenuSettings?
+
+  @@map("organizations")
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  phone          String?
+  email          String?
+  address        String?
+  city           String       @default("Kathmandu")
+  timezone       String       @default("Asia/Kathmandu")
+  currency       String       @default("NPR")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userBranches   UserBranch[]
+  reservations   Reservation[]
+  waitlistEntries WaitlistEntry[]
+  tables         RestaurantTable[]
+  feedback       Feedback[]
+  settings       BranchSettings?
+
+  @@unique([organizationId, code])
+  @@map("branches")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  email          String       @unique
+  passwordHash   String
+  fullName       String
+  phone          String?
+  status         String       @default("ACTIVE") // ACTIVE, SUSPENDED, DEACTIVATED
+  isActive       Boolean      @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles           UserRole[]
+  userBranches        UserBranch[]
+  assignedTasks       Task[]               @relation("AssignedTasks")
+  createdTasks        Task[]               @relation("CreatedTasks")
+  notes               CustomerNote[]
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model Role {
+  id             String           @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  isSystemRole   Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles      UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([organizationId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  description     String
+  category        String
+  createdAt       DateTime         @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model UserBranch {
+  userId   String
+  branchId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@map("user_branches")
+}
+
+// --------------------------------------------------------
+// CUSTOMERS & PROFILES
+// --------------------------------------------------------
+
+model Customer {
+  id                String    @id @default(uuid())
+  organizationId   String
+  preferredBranchId String?
+  firstName        String
+  lastName         String?
+  displayName      String?
+  phone            String
+  normalizedPhone  String?
+  alternatePhone   String?
+  email            String?
+  normalizedEmail  String?
+  gender           String?
+  dateOfBirth      DateTime?
+  anniversaryDate  DateTime?
+  preferredLanguage String?  @default("en")
+  city             String?   @default("Kathmandu")
+  address          String?
+  whatsAppNumber   String?
+  acquisitionSource String?  @default("WALK_IN") // WALK_IN, INSTAGRAM, WORD_OF_MOUTH, GOOGLE_MAPS, PARTNER_POS
+  status           String    @default("ACTIVE") // ACTIVE, INACTIVE, MERGED
+  lifecycleStage   String    @default("NEW") // NEW, RETURNING, REGULAR, VIP, AT_RISK, LAPSED
+  firstVisitAt     DateTime?
+  lastVisitAt      DateTime?
+  visitCount       Int       @default(0)
+  totalSpendNpr    Int       @default(0) // Stored in Paisa (1 NPR = 100 Paisa)
+  averageSpendNpr  Int       @default(0) // Stored in Paisa
+  noShowCount      Int       @default(0)
+  mergedIntoId     String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  preferences    CustomerPreference?
+  notes          CustomerNote[]
+  customerTags   CustomerTag[]
+  consentEvents  ConsentEvent[]
+  reservations   Reservation[]
+  waitlistEntries WaitlistEntry[]
+  loyaltyAccount LoyaltyAccount?
+  feedback       Feedback[]
+  tasks          Task[]
+  interactions   CustomerInteraction[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, lifecycleStage])
+  @@index([organizationId, phone])
+  @@index([organizationId, normalizedPhone])
+  @@index([organizationId, normalizedEmail])
+  @@map("customers")
+}
+
+model CustomerPreference {
+  customerId          String   @id
+  favoriteFood        String?
+  favoriteDrink       String?
+  dietaryPreferences  String   @default("[]")
+  allergies           String   @default("[]")
+  spicePreference     String?  // MILD, MEDIUM, SPICY, EXTRA_SPICY
+  seatingPreference   String?  // WINDOW, ROOFTOP, QUIET_CORNER, MAIN_HALL
+  servicePreferences  String?
+  marketingOptInSms      Boolean  @default(true)
+  marketingOptInEmail    Boolean  @default(true)
+  marketingOptInWhatsApp Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_preferences")
+}
+
+model CustomerNote {
+  id          String   @id @default(uuid())
+  customerId  String
+  authorId    String
+  branchId    String?
+  category    String   @default("GENERAL") // GENERAL, PREFERENCE, COMPLAINT, SPECIAL_REQUEST
+  content     String
+  pinned      Boolean  @default(false)
+  isImportant Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+
+  @@map("customer_notes")
+}
+
+model Tag {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  colorHex       String   @default("#6B7280")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerTags CustomerTag[]
+
+  @@unique([organizationId, name])
+  @@map("tags")
+}
+
+model CustomerTag {
+  customerId String
+  tagId      String
+  assignedAt DateTime @default(now())
+  assignedById String?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+  @@map("customer_tags")
+}
+
+model ConsentEvent {
+  id         String   @id @default(uuid())
+  customerId String
+  channel    String   // SMS, EMAIL, WHATSAPP
+  granted    Boolean
+  source     String   // POS, FORM, VERBAL, SYSTEM
+  actorId    String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("consent_events")
+}
+
+// --------------------------------------------------------
+// OPERATIONS: VISITS, ORDERS, MENU & RESERVATIONS
+// --------------------------------------------------------
+
+model MenuCategory {
+  id             String     @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  sequence       Int        @default(1)
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItems    MenuItem[]
+
+  @@unique([organizationId, name])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id             String       @id @default(uuid())
+  organizationId String
+  categoryId     String
+  sku            String?
+  name           String
+  description    String?
+  priceNpr       Int          // Stored in Paisa
+  imageUrl       String?
+  dietaryTag     String?      // VEG, NON_VEG, VEGAN, GLUTEN_FREE
+  isAvailable    Boolean      @default(true)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     MenuCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("menu_items")
+}
+
+model DigitalMenuSettings {
+  id              String   @id @default(uuid())
+  organizationId  String   @unique
+  acceptingOrders Boolean  @default(true)
+  headerTitle     String   @default("SNACKSY CAFE")
+  headerSubtitle  String   @default("DINE-IN & TAKEAWAY AVAILABLE")
+  accentColor     String   @default("#b91c1c")
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("digital_menu_settings")
+}
+
+model RestaurantTable {
+  id             String   @id @default(uuid())
+  branchId       String
+  organizationId String
+  tableNumber    String
+  name           String?
+  capacity       Int
+  section        String?  @default("MAIN_HALL") // MAIN_HALL, ROOFTOP, PATIO, PRIVATE_ROOM
+  isAvailable    Boolean  @default(true)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@unique([branchId, tableNumber])
+  @@index([organizationId, branchId])
+  @@map("restaurant_tables")
+}
+
+model Reservation {
+  id                      String   @id @default(uuid())
+  organizationId          String
+  branchId                String
+  customerId              String
+  tableId                 String?
+  reservationDateTime     DateTime @default(now())
+  expectedDurationMinutes Int      @default(90)
+  partySize               Int      @default(2)
+  source                  String   @default("PHONE") // PHONE, WALK_IN, WEBSITE, INSTAGRAM, FACEBOOK, WHATSAPP, GOOGLE, MANUAL, OTHER
+  occasion                String?
+  customerNotes           String?
+  internalNotes           String?
+  status                  String   @default("CONFIRMED") // PENDING, CONFIRMED, SEATED, COMPLETED, CANCELLED, NO_SHOW
+  createdById             String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  branch       Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customer     Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  table        RestaurantTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId])
+  @@index([customerId, status])
+  @@index([tableId, reservationDateTime])
+  @@map("reservations")
+}
+
+model WaitlistEntry {
+  id                   String    @id @default(uuid())
+  organizationId       String
+  branchId             String
+  customerId           String
+  partySize            Int       @default(2)
+  arrivalTime          DateTime  @default(now())
+  estimatedWaitMinutes Int       @default(15)
+  preferredSeating     String?
+  status               String    @default("WAITING") // WAITING, NOTIFIED, SEATED, CANCELLED, LEFT
+  notes                String?
+  joinedAt             DateTime  @default(now())
+  seatedAt             DateTime?
+  updatedAt            DateTime  @updatedAt
+
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, branchId])
+  @@index([customerId, status])
+  @@map("waitlist_entries")
+}
+
+// --------------------------------------------------------
+// LOYALTY & REWARDS
+// --------------------------------------------------------
+
+model LoyaltySettings {
+  id                   String   @id @default(uuid())
+  organizationId       String   @unique
+  earnRateSpendNpr     Int      @default(10000) // 1 point per NPR 100 spent (stored in Paisa)
+  minSpendToEarnNpr    Int      @default(10000) // Minimum spend to earn points (in Paisa)
+  earnPointsPerVisit   Int      @default(5)     // Bonus points per completed visit
+  pointsExpirationDays Int?     @default(365)   // Points expiration in days
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_settings")
+}
+
+model LoyaltyAccount {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  customerId             String   @unique
+  currentTierId          String?
+  currentPoints          Int      @default(0)
+  lifetimePointsEarned   Int      @default(0)
+  lifetimePointsRedeemed Int      @default(0)
+  enrolledAt             DateTime @default(now())
+  status                 String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  currentTier  LoyaltyTier?         @relation(fields: [currentTierId], references: [id])
+  transactions LoyaltyTransaction[]
+  redemptions  RewardRedemption[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTier {
+  id               String   @id @default(uuid())
+  organizationId   String
+  name             String   // Member, Silver, Gold, VIP
+  minSpendNpr      Int      @default(0) // Stored in Paisa
+  minVisits        Int      @default(0)
+  minPoints        Int      @default(0)
+  colorHex         String   @default("#6B7280")
+  benefitsSummary  String?
+  sequence         Int      @default(1)
+  createdAt        DateTime @default(now())
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loyaltyAccounts LoyaltyAccount[]
+
+  @@unique([organizationId, name])
+  @@map("loyalty_tiers")
+}
+
+model LoyaltyTransaction {
+  id                String   @id @default(uuid())
+  accountId         String
+  type              String   // EARNED, REDEEMED, MANUAL_ADJUSTMENT, EXPIRED, REVERSED
+  points            Int      // Positive for earned/adjustment, negative for redeemed/expired
+  source            String   @default("ORDER") // ORDER, VISIT, PROMOTION, MANUAL, SYSTEM
+  sourceReferenceId String?  // Order ID, Visit ID, or Campaign ID
+  description       String?
+  createdById       String?
+  createdAt         DateTime @default(now())
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+model Reward {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  type           String   @default("FIXED_DISCOUNT_NPR") // FREE_ITEM, FIXED_DISCOUNT_NPR, PERCENT_DISCOUNT, BIRTHDAY_REWARD, COMPLIMENTARY
+  valueNpr       Int      @default(0) // Stored in Paisa
+  valuePercent   Float?
+  pointsRequired Int
+  validityDays   Int      @default(30)
+  redemptionLimit Int?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  redemptions  RewardRedemption[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id             String    @id @default(uuid())
+  organizationId String
+  accountId      String
+  rewardId       String
+  transactionId  String?
+  code           String    @unique
+  pointsSpent    Int
+  branchId       String?
+  status         String    @default("ISSUED") // ISSUED, REDEEMED, EXPIRED
+  issuedAt       DateTime  @default(now())
+  redeemedAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  account      LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reward       Reward         @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@map("reward_redemptions")
+}
+
+// --------------------------------------------------------
+// FEEDBACK, TASKS & INTEGRATIONS
+// --------------------------------------------------------
+
+// --------------------------------------------------------
+// FEEDBACK, TASKS & INTEGRATIONS
+// --------------------------------------------------------
+
+model Feedback {
+  id              String   @id @default(uuid())
+  organizationId  String
+  branchId        String
+  customerId      String
+  visitId         String?
+  orderId         String?
+  rating          Int      // 1 to 5
+  comment         String?
+  isNegative      Boolean  @default(false) // rating <= 2
+  status          String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  resolutionNotes String?
+  resolvedById    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch       Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+  resolutions  FeedbackResolution[]
+
+  @@map("feedback")
+}
+
+model FeedbackResolution {
+  id         String   @id @default(uuid())
+  feedbackId String
+  resolvedBy String
+  notes      String
+  resolvedAt DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@map("feedback_resolutions")
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  organizationId String
+  branchId       String?
+  customerId     String?
+  feedbackId     String?
+  assignedToId   String?
+  createdById    String?
+  title          String
+  description    String?
+  priority       String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  category       String    @default("GENERAL") // FEEDBACK_RECOVERY, RESERVATION_FOLLOWUP, GENERAL
+  status         String    @default("TODO") // TODO, IN_PROGRESS, COMPLETED, CANCELLED
+  dueDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  feedback     Feedback?    @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  createdBy    User?        @relation("CreatedTasks", fields: [createdById], references: [id])
+
+  @@map("tasks")
+}
+
+model CustomerInteraction {
+  id         String   @id @default(uuid())
+  customerId String
+  type       String   // CALL, EMAIL, IN_PERSON, SMS
+  summary    String
+  occurredAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_interactions")
+}
+
+model IntegrationConnection {
+  id             String   @id @default(uuid())
+  organizationId String
+  provider       String   // SPARROW_SMS, META_WHATSAPP, POS_PARTNER
+  credentials    String   // Encrypted JSON string
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  webhookEvents WebhookEvent[]
+
+  @@map("integration_connections")
+}
+
+model WebhookEvent {
+  id           String   @id @default(uuid())
+  connectionId String
+  eventType    String
+  payload      String
+  processed    Boolean  @default(false)
+  receivedAt   DateTime @default(now())
+
+  connection IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_events")
+}
+
+model ImportJob {
+  id             String   @id @default(uuid())
+  organizationId String
+  filename       String
+  totalRows      Int
+  processedRows  Int      @default(0)
+  failedRows     Int      @default(0)
+  status         String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  errorLog       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("import_jobs")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String?
+  action         String   // E.g., customer.create, customer.merge, settings.update
+  resource       String
+  resourceId     String?
+  details        String?  // JSON context
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model OrganizationSettings {
+  organizationId          String   @id
+  autoCalculateRfm        Boolean  @default(true)
+  atRiskDaysThreshold     Int      @default(30)
+  lapsedDaysThreshold     Int      @default(60)
+  regularVisitsThreshold Int      @default(4)
+  negativeRatingMaxThreshold Int   @default(2)
+  updatedAt               DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model BranchSettings {
+  branchId            String   @id
+  openingHours        String?
+  tableAutoAssignment Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("branch_settings")
+}
