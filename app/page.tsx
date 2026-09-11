@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Bell, ChefHat, ChevronRight, CircleDollarSign, Clock3, Coffee, CreditCard, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Plus, ReceiptText, RefreshCw, Search, Settings2, ShoppingBag, Store, Users, UtensilsCrossed, WalletCards, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BarChart3, Bell, ChefHat, ChevronRight, CircleDollarSign, Clock3, Coffee, CreditCard, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Plus, ReceiptText, RefreshCw, Search, Settings2, ShoppingBag, Store, Users, UtensilsCrossed, Volume2, VolumeX, WalletCards, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Role = "owner" | "waiter" | "chef" | "cashier";
@@ -12,6 +12,8 @@ type CafeTable = { id: number; name: string; seats: number; zone: string };
 type OrderItem = { name: string; price: number; qty: number };
 type MenuItem = { id: number; name: string; category: string; price: number; available: number | boolean; imageKey?: string | null };
 type Order = { id: number; tableName: string; items: string; total: number; status: string; waiter: string; paymentMethod?: string | null; createdAt: number; completedAt?: number | null };
+type AlertKind = "kitchen" | "ready" | "billing";
+type WorkAlert = { id: string; kind: AlertKind; orderId: number; title: string; detail: string; view: View };
 
 const roleInfo: Record<Role,{label:string;note:string}> = {
   owner:{label:"Owner",note:"Full access & reports"}, waiter:{label:"Waiter",note:"Tables, orders & service"},
@@ -51,6 +53,15 @@ export default function Home() {
   const [tables, setTables] = useState<CafeTable[]>(demoTables); const [orders, setOrders] = useState<Order[]>(demoOrders); const [menuItems, setMenuItems] = useState<MenuItem[]>(demoMenu); const [staffMembers,setStaffMembers]=useState<Staff[]>(defaultStaff);
   const [selectedTable, setSelectedTable] = useState<CafeTable | null>(null); const [mobileMenu, setMobileMenu] = useState(false);
   const [loading, setLoading] = useState(false); const [notice, setNotice] = useState("");
+  const [alertsOpen,setAlertsOpen]=useState(false), [soundOn,setSoundOn]=useState(true);
+  const previousOrderStates=useRef<Map<number,string>>(new Map()), alertUserId=useRef<number|null>(null), audioContext=useRef<AudioContext|null>(null);
+
+  const primeAudio=useCallback(()=>{if(typeof window==="undefined")return null;const AudioCtor=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(!AudioCtor)return null;if(!audioContext.current||audioContext.current.state==="closed")audioContext.current=new AudioCtor();if(audioContext.current.state==="suspended")void audioContext.current.resume();return audioContext.current},[]);
+  const playAlert=useCallback((kind:AlertKind)=>{if(!soundOn)return;const ctx=primeAudio();if(!ctx)return;const patterns:Record<AlertKind,{frequency:number;at:number;duration:number;wave:OscillatorType}[]>={
+    kitchen:[{frequency:880,at:0,duration:.12,wave:"sine"},{frequency:660,at:.17,duration:.2,wave:"sine"}],
+    ready:[{frequency:523,at:0,duration:.1,wave:"triangle"},{frequency:659,at:.12,duration:.1,wave:"triangle"},{frequency:784,at:.24,duration:.22,wave:"triangle"}],
+    billing:[{frequency:440,at:0,duration:.18,wave:"square"},{frequency:330,at:.24,duration:.25,wave:"square"}],
+  };const start=ctx.currentTime+.03;patterns[kind].forEach(tone=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain(),from=start+tone.at,to=from+tone.duration;oscillator.type=tone.wave;oscillator.frequency.setValueAtTime(tone.frequency,from);gain.gain.setValueAtTime(.0001,from);gain.gain.exponentialRampToValueAtTime(.13,from+.018);gain.gain.exponentialRampToValueAtTime(.0001,to);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(from);oscillator.stop(to+.02)})},[primeAudio,soundOn]);
 
   const loadState = useCallback(async () => { try { const res = await fetch("/api/cafe", { cache: "no-store" }); if (!res.ok) return; const data = await res.json() as { tables?: CafeTable[]; orders?: Order[]; menuItems?: MenuItem[]; staffMembers?: Omit<Staff,"label"|"note">[] }; setTables(data.tables?.length ? data.tables : demoTables); setOrders(data.orders ?? []); setMenuItems(data.menuItems?.length ? data.menuItems : demoMenu); if(data.staffMembers?.length)setStaffMembers(data.staffMembers.map(member=>withRoleInfo(member))); } catch { /* local preview keeps representative data */ } }, []);
   // Initial remote state is loaded once after the client mounts.
@@ -62,8 +73,9 @@ export default function Home() {
   useEffect(()=>{if(!user)return;const fresh=staffMembers.find(s=>s.id===user.id);if(fresh&&(fresh.name!==user.name||fresh.role!==user.role)){setUser(fresh)}},[staffMembers,user]);
 
   const saveAction = async (body: Record<string, unknown>, success: string) => { setLoading(true); setNotice(""); try { const res = await fetch("/api/cafe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, role: user?.role, actorStaffId:user?.id }) }); const data = await res.json() as Record<string, unknown>; if (!res.ok) throw new Error(String(data.error)); await loadState(); setNotice(success); return data; } catch (e) { setNotice(e instanceof Error ? e.message : "Could not save. Try again."); return null; } finally { setLoading(false); } };
-  const login = async (account: Staff, pin: string) => { try{const res=await fetch("/api/cafe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"login",staffId:account.id,pin})});const data=await res.json() as {staff:Omit<Staff,"label"|"note">};if(!res.ok)return false;const signedIn=withRoleInfo(data.staff);setUser(signedIn);setView(roleViews[signedIn.role][0]);return true}catch{return false} };
-  const logout = () => { setUser(null); setView("overview"); };
+  const login = async (account: Staff, pin: string) => { primeAudio();try{const res=await fetch("/api/cafe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"login",staffId:account.id,pin})});const data=await res.json() as {staff:Omit<Staff,"label"|"note">};if(!res.ok)return false;const signedIn=withRoleInfo(data.staff);setUser(signedIn);setView(roleViews[signedIn.role][0]);return true}catch{return false} };
+  const logout = () => { setUser(null); setView("overview"); setAlertsOpen(false); };
+  useEffect(()=>{if(!user){alertUserId.current=null;previousOrderStates.current=new Map(orders.map(o=>[o.id,o.status]));return}if(alertUserId.current!==user.id){alertUserId.current=user.id;previousOrderStates.current=new Map(orders.map(o=>[o.id,o.status]));return}const before=previousOrderStates.current, sounds=new Set<AlertKind>();for(const order of orders){const previous=before.get(order.id);if(previous===order.status)continue;if(order.status==="kitchen"&&(user.role==="chef"||user.role==="owner"))sounds.add("kitchen");if(order.status==="ready"&&(user.role==="waiter"||user.role==="owner"))sounds.add("ready");if(order.status==="served"&&(user.role==="cashier"||user.role==="owner"))sounds.add("billing")}previousOrderStates.current=new Map(orders.map(o=>[o.id,o.status]));sounds.forEach(playAlert)},[orders,user,playAlert]);
   useEffect(() => {
     type ModelContext = { registerTool: (tool: Record<string, unknown>, options?: { signal: AbortSignal }) => void | Promise<void> };
     const context = (document as Document & { modelContext?: ModelContext }).modelContext;
@@ -82,6 +94,7 @@ export default function Home() {
   }, [user, loadState]);
   if (!user) return <Login accounts={staffMembers} onLogin={login}/>;
   const allowedViews = roleViews[user.role];
+  const workAlerts:WorkAlert[]=orders.flatMap(order=>{const alerts:WorkAlert[]=[];if(order.status==="kitchen"&&(user.role==="chef"||user.role==="owner"))alerts.push({id:`kitchen-${order.id}`,kind:"kitchen",orderId:order.id,title:"New kitchen order",detail:`${order.tableName} · Order #${order.id} · ${order.waiter}`,view:"kitchen"});if(order.status==="ready"&&(user.role==="waiter"||user.role==="owner"))alerts.push({id:`ready-${order.id}`,kind:"ready",orderId:order.id,title:"Order ready to serve",detail:`${order.tableName} · Order #${order.id}`,view:"tables"});if(order.status==="served"&&(user.role==="cashier"||user.role==="owner"))alerts.push({id:`billing-${order.id}`,kind:"billing",orderId:order.id,title:"Payment is waiting",detail:`${order.tableName} · ${money(order.total)} · Order #${order.id}`,view:"billing"});return alerts});
   return <div className="ops-shell">
     <aside className={`ops-sidebar ${mobileMenu ? "open" : ""}`}><div className="ops-brand"><span><Coffee size={20}/></span><div><strong>snacksy</strong><small>cafe operations</small></div></div><button className="close-menu" onClick={() => setMobileMenu(false)}><X size={19}/></button>
       <div className={`role-chip ${user.role}`}><RoleIcon role={user.role}/><div><strong>{user.label} mode</strong><span>Signed in as {user.name}</span></div></div>
@@ -89,7 +102,7 @@ export default function Home() {
       <div className="shift-card"><span>Today’s shift</span><strong>09:00 AM — 09:30 PM</strong><small><i/> System live</small></div>
       <button className="logout" onClick={logout}><LogOut size={18}/> Switch staff account</button>
     </aside>
-    <main><header className="ops-topbar"><div className="top-title"><button className="menu-toggle" onClick={()=>setMobileMenu(true)}><MenuIcon size={21}/></button><div><span>Snacksy Cafe & Restro</span><h1>{navMeta[view].label}</h1></div></div><div className="top-actions"><span className="sync"><RefreshCw size={13}/> Live sync</span><button className="bell"><Bell size={18}/><i/></button><div className="user-pill"><span>{user.name[0]}</span><div><strong>{user.name}</strong><small>{user.label}</small></div></div></div></header>
+    <main><header className="ops-topbar"><div className="top-title"><button className="menu-toggle" onClick={()=>setMobileMenu(true)}><MenuIcon size={21}/></button><div><span>Snacksy Cafe & Restro</span><h1>{navMeta[view].label}</h1></div></div><div className="top-actions"><span className="sync"><RefreshCw size={13}/> Live sync</span><div className="alert-wrap"><button className={`bell ${workAlerts.length?"ringing":""}`} aria-label={`${workAlerts.length} work alerts`} aria-expanded={alertsOpen} onClick={()=>{primeAudio();setAlertsOpen(open=>!open)}}><Bell size={18}/>{workAlerts.length>0&&<b>{workAlerts.length>99?"99+":workAlerts.length}</b>}</button>{alertsOpen&&<section className="alert-panel"><header><div><strong>Work alerts</strong><span>{workAlerts.length?`${workAlerts.length} need attention`:"All caught up"}</span></div><button aria-label={soundOn?"Mute alert sounds":"Turn on alert sounds"} onClick={()=>{primeAudio();setSoundOn(on=>!on)}}>{soundOn?<Volume2 size={17}/>:<VolumeX size={17}/>}</button></header><div>{workAlerts.map(alert=><button className={`alert-item ${alert.kind}`} key={alert.id} onClick={()=>{setView(alert.view);setAlertsOpen(false)}}><i>{alert.kind==="kitchen"?<ChefHat size={16}/>:alert.kind==="ready"?<UtensilsCrossed size={16}/>:<ReceiptText size={16}/>}</i><span><strong>{alert.title}</strong><small>{alert.detail}</small></span><ChevronRight size={15}/></button>)}{!workAlerts.length&&<div className="alert-empty"><Bell size={22}/><span>No pending work alerts.</span></div>}</div><footer><span><i className="kitchen"/> Kitchen</span><span><i className="ready"/> Waiter</span><span><i className="billing"/> Cashier</span></footer></section>}</div><div className="user-pill"><span>{user.name[0]}</span><div><strong>{user.name}</strong><small>{user.label}</small></div></div></div></header>
       <div className="ops-content">{notice&&<div className="notice" onClick={()=>setNotice("")}>{notice}<X size={15}/></div>}
         {view==="overview"&&<OwnerOverview ownerName={user.name} orders={orders} tables={tables} go={setView}/>} {view==="tables"&&<TablesView tables={tables} orders={orders} user={user} choose={setSelectedTable} act={saveAction} loading={loading}/>} {view==="kitchen"&&<KitchenView orders={orders} role={user.role} act={saveAction} loading={loading}/>} {view==="billing"&&<BillingView orders={orders} role={user.role} act={saveAction} loading={loading}/>} {view==="menu"&&<MenuView items={menuItems} role={user.role} act={saveAction} loading={loading} refresh={loadState}/>} {view==="reports"&&<ReportsView orders={orders} menuItems={menuItems}/>} {view==="staff"&&<StaffView members={staffMembers} act={saveAction} loading={loading}/>}
       </div>
