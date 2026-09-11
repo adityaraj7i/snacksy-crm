@@ -1,5 +1,25 @@
 # vinext-starter
 
+## Deploying Snacksy on Vercel
+
+This repository builds as a standard Next.js application on Vercel. Before the first production visit:
+
+1. Add a Neon Postgres database from the Vercel Marketplace and connect it to this project. It must provide `DATABASE_URL`.
+2. Create a public Vercel Blob store for menu photos. It provides `BLOB_READ_WRITE_TOKEN`.
+3. Add the four initial staff PIN environment variables listed below to Production and Preview.
+4. Redeploy. The database tables and initial café data are created automatically on the first request.
+
+Do not put any of these secret values in GitHub.
+
+## Vercel deployment
+
+This repository uses standard Next.js output for Vercel. Connect these two storage resources to the Vercel project before opening the deployed app:
+
+- Neon Postgres from the Vercel Marketplace, which provides `DATABASE_URL`
+- Vercel Blob, which provides `BLOB_READ_WRITE_TOKEN`
+
+Then add the initial staff secrets below in the Vercel project settings.
+
 ## Snacksy initial staff access
 
 Before starting with an empty database, configure these four-digit secret bindings:

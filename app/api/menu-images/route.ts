@@ -1,4 +1,5 @@
-import { getBucket, getD1 } from "@/db";
+import { getD1 } from "@/db";
+import { del, put } from "@vercel/blob";
 
 const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -28,15 +29,14 @@ export async function POST(request: Request) {
     if (!current) return Response.json({ error: "Menu item not found." }, { status: 404 });
 
     const key = `menu/${menuId}/${crypto.randomUUID()}.${IMAGE_TYPES[body.contentType]}`;
-    const bucket = getBucket();
-    await bucket.put(key, bytes, { httpMetadata: { contentType: body.contentType } });
+    const blob = await put(key, Buffer.from(bytes), { access: "public", contentType: body.contentType });
     try {
-      await db.prepare("UPDATE menu_items SET image_key = ? WHERE id = ?").bind(key, menuId).run();
+      await db.prepare("UPDATE menu_items SET image_key = ? WHERE id = ?").bind(blob.url, menuId).run();
     } catch (error) {
-      await bucket.delete(key);
+      await del(blob.url);
       throw error;
     }
-    if (current.imageKey) await bucket.delete(current.imageKey);
+    if (current.imageKey) await del(current.imageKey);
     return Response.json({ ok: true, imageUrl: `/api/menu-images/${menuId}` });
   } catch (error) {
     console.error("Menu image upload failed", error);
@@ -53,7 +53,7 @@ export async function DELETE(request: Request) {
     const current = await db.prepare("SELECT image_key AS imageKey FROM menu_items WHERE id = ?").bind(body.menuId).first<{ imageKey: string | null }>();
     if (!current) return Response.json({ error: "Menu item not found." }, { status: 404 });
     await db.prepare("UPDATE menu_items SET image_key = NULL WHERE id = ?").bind(body.menuId).run();
-    if (current.imageKey) await getBucket().delete(current.imageKey);
+    if (current.imageKey) await del(current.imageKey);
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Menu image removal failed", error);

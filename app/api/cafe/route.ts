@@ -1,5 +1,5 @@
-import { getBucket, getD1 } from "@/db";
-import { env } from "cloudflare:workers";
+import { getD1 } from "@/db";
+import { del } from "@vercel/blob";
 
 const defaultTables = [
   ["T1", 2, "Window"], ["T2", 2, "Window"], ["T3", 4, "Main floor"],
@@ -18,7 +18,7 @@ const defaultStaff = [
 
 function getInitialStaff() {
   return defaultStaff.map(([role, name, binding]) => {
-    const pin = env[binding];
+    const pin = process.env[binding];
     if (!/^\d{4}$/.test(pin || "")) throw new Error(`Missing or invalid ${binding} secret.`);
     return [role, name, pin] as const;
   });
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       if (!body.menuId) return Response.json({ error: "Menu item is required." }, { status: 400 });
       const item = await db.prepare("SELECT image_key AS imageKey FROM menu_items WHERE id = ?").bind(body.menuId).first<{ imageKey: string | null }>();
       await db.prepare("DELETE FROM menu_items WHERE id = ?").bind(body.menuId).run();
-      if (item?.imageKey) await getBucket().delete(item.imageKey);
+      if (item?.imageKey) await del(item.imageKey);
       return Response.json({ ok: true });
     }
     if (body.action === "create") {
