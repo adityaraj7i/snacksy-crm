@@ -39,7 +39,7 @@ export async function GET() {
     if (!staffExisting?.count) await db.batch(getInitialStaff().map(member => db.prepare("INSERT INTO staff_members (role, name, pin, active, created_at) VALUES (?, ?, ?, 1, ?)").bind(...member, Date.now())));
     const [tables, orders, menuItems, staffMembers] = await db.batch([
       db.prepare("SELECT id, name, seats, zone FROM cafe_tables ORDER BY id"),
-      db.prepare("SELECT id, table_name AS tableName, items, total, status, waiter, payment_method AS paymentMethod, created_at AS createdAt, completed_at AS completedAt FROM orders ORDER BY created_at DESC LIMIT 200"),
+      db.prepare("SELECT id, table_name AS tableName, items, total, status, waiter, payment_method AS paymentMethod, created_at AS createdAt, completed_at AS completedAt FROM orders ORDER BY created_at DESC LIMIT 5000"),
       db.prepare("SELECT id, name, category, price, available, image_key AS imageKey FROM menu_items ORDER BY category, name"),
       db.prepare("SELECT id, role, name, active, created_at AS createdAt FROM staff_members WHERE active = 1 ORDER BY CASE role WHEN 'owner' THEN 1 WHEN 'cashier' THEN 2 WHEN 'waiter' THEN 3 ELSE 4 END, id"),
     ]);
