@@ -55,6 +55,11 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        getWindow().setStatusBarColor(getColor(R.color.snacksy_brown));
+        getWindow().setNavigationBarColor(getColor(R.color.snacksy_background));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        }
         webView = findViewById(R.id.web_view);
         progress = findViewById(R.id.progress);
         configureWebView(webView, true);
@@ -84,7 +89,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " SnacksyCafeAndroid/1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " SnacksyCafeAndroid/1.0.1");
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(target, false);

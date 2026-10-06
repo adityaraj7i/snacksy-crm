@@ -71,6 +71,48 @@ body{background:var(--bg);font-family:Inter,"Segoe UI",Arial,sans-serif}
 @media(max-width:1000px){.operations-grid{grid-template-columns:1fr}.report-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.operations-actions{margin:-10px 0 20px}.operations-actions button{flex:1;justify-content:center}.stock-metrics,.report-metrics{grid-template-columns:1fr}.table-action-stack{left:14px;right:auto}.table-card:has(.table-action-stack){padding-bottom:54px}}
 
+/* Mobile app navigation and touch polish */
+.menu-backdrop{display:none}
+@media(max-width:780px){
+  .menu-backdrop{display:block;position:fixed;inset:0;z-index:35;border:0;background:rgba(37,29,25,.38);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:snacksy-fade-in .2s ease}
+  .ops-sidebar{z-index:40;left:min(-88vw,-330px);width:min(84vw,310px);padding:18px 18px max(18px,env(safe-area-inset-bottom));border-radius:0 20px 20px 0;box-shadow:18px 0 55px rgba(41,31,27,.2);transition:left .24s cubic-bezier(.2,.8,.2,1);overflow-y:auto;overscroll-behavior:contain}
+  .ops-sidebar.open{left:0}
+  .ops-brand{min-height:64px;padding:0 48px 7px 4px;border-bottom:1px solid #eee7e1}
+  .brand-wordmark{width:154px}
+  .close-menu{right:14px;top:14px;width:40px;height:40px;border:1px solid #e4dad3;background:#f6f1ed;color:#66544c;border-radius:12px}
+  .role-chip{margin:17px 1px 13px;padding:12px;border-radius:13px}
+  .role-chip strong{font-size:13px}.role-chip span{font-size:10px;margin-top:4px}
+  .ops-sidebar nav{gap:4px}
+  .ops-sidebar nav button{min-height:48px;height:auto;padding:0 12px;border-radius:11px;font-size:14px}
+  .ops-sidebar nav button svg{flex:0 0 auto}
+  .shift-card{margin-top:22px;padding:14px;border-radius:13px}
+  .shift-card strong{font-size:12px}.shift-card small{font-size:11px}
+  .logout{min-height:48px;padding:10px 9px 0;font-size:12px}
+  .ops-topbar{background:rgba(255,253,249,.96);border-bottom-color:#e7ded7;box-shadow:0 5px 20px rgba(75,57,49,.055)}
+  .top-title{gap:10px;min-width:0}
+  .top-title>div{min-width:0}.top-title span{font-size:9px;white-space:nowrap}.top-title h1{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu-toggle,.bell{border:1px solid #e5dcd5;background:#fffdfa;color:#5b4a42;border-radius:12px}
+  .user-pill{padding-left:9px}.user-pill>span{width:40px;height:40px;border-radius:12px;background:#45362f}
+  .ops-content{padding-top:24px}
+  .ops-welcome{align-items:flex-start}.ops-welcome p,.section-head p{font-size:11px;line-height:1.55}
+  .ops-metrics article,.ops-card,.table-card,.bill-card,.paid-list{border-radius:15px;box-shadow:0 7px 24px rgba(70,54,46,.045)}
+  .ops-metrics article{min-height:102px;padding:15px}.ops-metrics article>span{width:42px;height:42px}
+  .floor-toolbar{gap:10px}.floor-toolbar>span{display:none}
+  .table-card{min-height:156px}
+  .alert-panel{top:calc(68px + env(safe-area-inset-top));left:10px;right:10px;border-radius:16px;box-shadow:0 24px 60px rgba(40,29,24,.22)}
+}
+@media(max-width:420px){
+  .ops-topbar{padding-left:12px;padding-right:12px}
+  .ops-content{padding-left:14px;padding-right:14px}
+  .top-actions{gap:6px}.user-pill{padding-left:6px}
+  .top-title span{display:none}.top-title h1{margin:0;font-size:17px}
+  .ops-sidebar{width:min(88vw,310px)}
+  .ops-welcome{display:block}.open-badge{display:inline-flex;margin-top:12px}
+  .ops-metrics{gap:10px}
+  .section-head,.ops-welcome{margin-bottom:20px}
+}
+@keyframes snacksy-fade-in{from{opacity:0}to{opacity:1}}
+
 /* Android WebView and small-screen polish */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:#f6f2ed}body{min-height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overscroll-behavior-y:none}button,input,select{touch-action:manipulation}.ops-shell{min-height:100dvh}.ops-sidebar{height:100dvh}.ops-topbar{padding-top:env(safe-area-inset-top)}
 @media(max-width:780px){.ops-topbar{height:calc(72px + env(safe-area-inset-top));padding-left:max(17px,env(safe-area-inset-left));padding-right:max(17px,env(safe-area-inset-right))}.ops-content{padding-left:max(17px,env(safe-area-inset-left));padding-right:max(17px,env(safe-area-inset-right));padding-bottom:max(40px,env(safe-area-inset-bottom))}.menu-toggle,.bell{min-width:44px;min-height:44px}.ops-sidebar{padding-bottom:max(20px,env(safe-area-inset-bottom))}.notice{left:17px;right:17px;top:calc(82px + env(safe-area-inset-top));justify-content:space-between}}
