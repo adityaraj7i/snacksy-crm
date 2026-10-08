@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +20,7 @@ import android.provider.MediaStore;
 import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
@@ -31,6 +33,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.URLUtil;
 import android.widget.ProgressBar;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import org.json.JSONObject;
@@ -62,12 +65,36 @@ public class MainActivity extends Activity {
         }
         webView = findViewById(R.id.web_view);
         progress = findViewById(R.id.progress);
+        applyAndroid15SystemBarInsets();
         configureWebView(webView, true);
         if (savedInstanceState == null) {
             webView.loadUrl(APP_URL);
         } else {
             webView.restoreState(savedInstanceState);
         }
+    }
+
+    private void applyAndroid15SystemBarInsets() {
+        if (Build.VERSION.SDK_INT < 35) return;
+        View root = findViewById(R.id.app_root);
+        View statusBarScrim = findViewById(R.id.status_bar_scrim);
+        root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            Insets safe = windowInsets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+
+            FrameLayout.LayoutParams webParams = (FrameLayout.LayoutParams) webView.getLayoutParams();
+            webParams.setMargins(safe.left, safe.top, safe.right, safe.bottom);
+            webView.setLayoutParams(webParams);
+
+            FrameLayout.LayoutParams progressParams = (FrameLayout.LayoutParams) progress.getLayoutParams();
+            progressParams.setMargins(safe.left, safe.top, safe.right, 0);
+            progress.setLayoutParams(progressParams);
+
+            FrameLayout.LayoutParams scrimParams = (FrameLayout.LayoutParams) statusBarScrim.getLayoutParams();
+            scrimParams.height = safe.top;
+            statusBarScrim.setLayoutParams(scrimParams);
+            return windowInsets;
+        });
+        root.requestApplyInsets();
     }
 
     @SuppressLint("SetJavaScriptEnabled")

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/app_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/snacksy_background"
     tools:ignore="MergeRootFrame">
 
     <WebView
@@ -18,4 +20,11 @@
         android:layout_gravity="top"
         android:indeterminateTint="@color/snacksy_brown"
         android:progressTint="@color/snacksy_brown" />
+
+    <View
+        android:id="@+id/status_bar_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="@color/snacksy_brown" />
 </FrameLayout>
