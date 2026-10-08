@@ -134,6 +134,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:#f6f2ed}body
 
 @media(max-width:780px) and (max-height:800px){.ops-sidebar{padding-top:12px;padding-bottom:10px}.ops-brand{min-height:52px}.brand-wordmark{width:132px}.close-menu{top:10px;right:10px;width:36px;height:36px}.role-chip{margin:9px 1px 7px;padding:9px}.ops-sidebar nav{gap:2px}.ops-sidebar nav button{min-height:42px;font-size:13px}.shift-card{padding:10px;margin-top:8px}.logout{min-height:42px;padding-top:4px}}
 
+.sync.offline,.sync.error,.shift-card small.offline,.shift-card small.error{color:#a66337}.sync.syncing,.shift-card small.syncing{color:#66544c}.sync.syncing svg{animation:snacksy-spin .9s linear infinite}@keyframes snacksy-spin{to{transform:rotate(360deg)}}
+
 /* Wide phones in landscape have little vertical room: keep every nav item reachable. */
 @media (min-width:781px) and (max-height:600px){
   .ops-sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}

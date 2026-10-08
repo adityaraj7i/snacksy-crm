@@ -85,6 +85,13 @@ async function ensureSchema() {
         created_at BIGINT NOT NULL
       )`);
       await sql.query(`CREATE INDEX IF NOT EXISTS idx_expenses_created_at ON expenses (created_at)`);
+      await sql.query(`CREATE TABLE IF NOT EXISTS offline_mutations (
+        id SERIAL PRIMARY KEY,
+        mutation_id TEXT NOT NULL UNIQUE,
+        response_json TEXT NOT NULL,
+        created_at BIGINT NOT NULL
+      )`);
+      await sql.query(`CREATE INDEX IF NOT EXISTS idx_offline_mutations_created_at ON offline_mutations (created_at)`);
     })().catch(error => {
       schemaReady = null;
       throw error;

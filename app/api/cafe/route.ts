@@ -42,7 +42,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { action?: string; role?: string; actorStaffId?: number; staffId?: number; staffRole?: string; pin?: string; tableName?: string; items?: unknown; total?: number; discount?: number; waiter?: string; orderId?: number; paymentMethod?: string; tableId?: number; seats?: number; zone?: string; menuId?: number; name?: string; category?: string; price?: number; inventoryId?: number; unit?: string; quantity?: number; reorderLevel?: number; expenseId?: number; note?: string; amount?: number };
+    const body = await request.json() as { action?: string; role?: string; actorStaffId?: number; staffId?: number; staffRole?: string; pin?: string; tableName?: string; items?: unknown; total?: number; discount?: number; waiter?: string; orderId?: number; paymentMethod?: string; tableId?: number; seats?: number; zone?: string; menuId?: number; name?: string; category?: string; price?: number; inventoryId?: number; unit?: string; quantity?: number; reorderLevel?: number; expenseId?: number; note?: string; amount?: number; clientMutationId?: string; clientTempId?: number };
     const db = getD1();
     if (body.action === "login") {
       if (!body.staffId || !/^\d{4}$/.test(body.pin || "")) return Response.json({ error: "Enter your 4-digit PIN." }, { status: 400 });
@@ -51,17 +51,29 @@ export async function POST(request: Request) {
       return Response.json({ ok: true, staff: member });
     }
     if (!body.role || !body.action || !allowed[body.role]?.includes(body.action)) return Response.json({ error: "This role cannot perform that action." }, { status: 403 });
+    const mutationId = typeof body.clientMutationId === "string" && body.clientMutationId.length <= 100 ? body.clientMutationId : null;
+    if (mutationId) {
+      const completed = await db.prepare("SELECT response_json AS responseJson FROM offline_mutations WHERE mutation_id = ?").bind(mutationId).first<{ responseJson: string }>();
+      if (completed?.responseJson) return Response.json(JSON.parse(completed.responseJson));
+    }
+    const success = async (payload: Record<string, unknown>) => {
+      if (mutationId) {
+        await db.prepare("INSERT INTO offline_mutations (mutation_id, response_json, created_at) VALUES (?, ?, ?) ON CONFLICT (mutation_id) DO UPDATE SET response_json = EXCLUDED.response_json, created_at = EXCLUDED.created_at").bind(mutationId, JSON.stringify(payload), Date.now()).run();
+        await db.prepare("DELETE FROM offline_mutations WHERE created_at < ?").bind(Date.now() - 30 * 86400000).run();
+      }
+      return Response.json(payload);
+    };
     if (body.action === "add_staff") {
       if (!body.name?.trim() || !["waiter", "chef", "cashier"].includes(body.staffRole || "") || !/^\d{4}$/.test(body.pin || "")) return Response.json({ error: "Enter a name, staff role and 4-digit PIN." }, { status: 400 });
       const result = await db.prepare("INSERT INTO staff_members (role, name, pin, active, created_at) VALUES (?, ?, ?, 1, ?)").bind(body.staffRole, body.name.trim(), body.pin, Date.now()).run();
-      return Response.json({ ok: true, staffId: result.meta.last_row_id });
+      return success({ ok: true, staffId: result.meta.last_row_id });
     }
     if (body.action === "update_staff") {
       if (!body.staffId || !body.name?.trim() || (body.pin && !/^\d{4}$/.test(body.pin))) return Response.json({ error: "Enter a name and, when changing it, a 4-digit PIN." }, { status: 400 });
       const current = await db.prepare("SELECT id FROM staff_members WHERE id = ? AND active = 1").bind(body.staffId).first();
       if (!current) return Response.json({ error: "Staff member not found." }, { status: 404 });
       await db.prepare("UPDATE staff_members SET name = ?, pin = COALESCE(?, pin) WHERE id = ?").bind(body.name.trim(), body.pin || null, body.staffId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "remove_staff") {
       if (!body.staffId) return Response.json({ error: "Staff member is required." }, { status: 400 });
@@ -69,13 +81,13 @@ export async function POST(request: Request) {
       if (!current) return Response.json({ error: "Staff member not found." }, { status: 404 });
       if (current.role === "owner") return Response.json({ error: "The owner account cannot be removed." }, { status: 400 });
       await db.prepare("UPDATE staff_members SET active = 0 WHERE id = ?").bind(body.staffId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "add_table") {
       const zone = body.zone;
       if (!body.tableName?.trim() || !zone || !tableZones.includes(zone as typeof tableZones[number]) || !Number.isInteger(body.seats) || body.seats! < 1 || body.seats! > 20) return Response.json({ error: "Enter a table name, Hall/Cabin/Outside category and 1–20 seats." }, { status: 400 });
-      await db.prepare("INSERT INTO cafe_tables (name, seats, zone) VALUES (?, ?, ?)").bind(body.tableName.trim().toUpperCase(), body.seats, zone).run();
-      return Response.json({ ok: true });
+      const result = await db.prepare("INSERT INTO cafe_tables (name, seats, zone) VALUES (?, ?, ?)").bind(body.tableName.trim().toUpperCase(), body.seats, zone).run();
+      return success({ ok: true, tableId: result.meta.last_row_id });
     }
     if (body.action === "remove_table") {
       if (!body.tableId) return Response.json({ error: "Table is required." }, { status: 400 });
@@ -84,61 +96,61 @@ export async function POST(request: Request) {
       const active = await db.prepare("SELECT id FROM orders WHERE table_name = ? AND status != 'completed' LIMIT 1").bind(table.name).first();
       if (active) return Response.json({ error: "Complete the active order before removing this table." }, { status: 409 });
       await db.prepare("DELETE FROM cafe_tables WHERE id = ?").bind(body.tableId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "add_menu") {
       if (!body.name?.trim() || !body.category?.trim() || !Number.isInteger(body.price) || body.price! < 1) return Response.json({ error: "Enter item name, category and a valid price." }, { status: 400 });
       const result = await db.prepare("INSERT INTO menu_items (name, category, price, available) VALUES (?, ?, ?, 1)").bind(body.name.trim(), body.category.trim(), body.price).run();
-      return Response.json({ ok: true, menuId: result.meta.last_row_id });
+      return success({ ok: true, menuId: result.meta.last_row_id });
     }
     if (body.action === "remove_menu") {
       if (!body.menuId) return Response.json({ error: "Menu item is required." }, { status: 400 });
       const item = await db.prepare("SELECT image_key AS imageKey FROM menu_items WHERE id = ?").bind(body.menuId).first<{ imageKey: string | null }>();
       await db.prepare("DELETE FROM menu_items WHERE id = ?").bind(body.menuId).run();
       if (item?.imageKey) await del(item.imageKey);
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "add_inventory") {
       if (!body.name?.trim() || !body.unit?.trim() || !Number.isInteger(body.quantity) || body.quantity! < 0 || !Number.isInteger(body.reorderLevel) || body.reorderLevel! < 0) return Response.json({ error: "Enter an item, unit, current stock and reorder level." }, { status: 400 });
       const result = await db.prepare("INSERT INTO inventory_items (name, unit, quantity, reorder_level, updated_at) VALUES (?, ?, ?, ?, ?)").bind(body.name.trim(), body.unit.trim(), body.quantity, body.reorderLevel, Date.now()).run();
-      return Response.json({ ok: true, inventoryId: result.meta.last_row_id });
+      return success({ ok: true, inventoryId: result.meta.last_row_id });
     }
     if (body.action === "update_inventory") {
       if (!body.inventoryId || !Number.isInteger(body.quantity) || body.quantity! < 0 || !Number.isInteger(body.reorderLevel) || body.reorderLevel! < 0) return Response.json({ error: "Enter valid stock and reorder values." }, { status: 400 });
       await db.prepare("UPDATE inventory_items SET quantity = ?, reorder_level = ?, updated_at = ? WHERE id = ?").bind(body.quantity, body.reorderLevel, Date.now(), body.inventoryId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "remove_inventory") {
       if (!body.inventoryId) return Response.json({ error: "Inventory item is required." }, { status: 400 });
       await db.prepare("DELETE FROM inventory_items WHERE id = ?").bind(body.inventoryId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "add_expense") {
       if (!body.category?.trim() || !Number.isInteger(body.amount) || body.amount! < 1) return Response.json({ error: "Enter a category and valid amount." }, { status: 400 });
       const result = await db.prepare("INSERT INTO expenses (category, note, amount, created_at) VALUES (?, ?, ?, ?)").bind(body.category.trim(), body.note?.trim() || "", body.amount, Date.now()).run();
-      return Response.json({ ok: true, expenseId: result.meta.last_row_id });
+      return success({ ok: true, expenseId: result.meta.last_row_id });
     }
     if (body.action === "remove_expense") {
       if (!body.expenseId) return Response.json({ error: "Expense is required." }, { status: 400 });
       await db.prepare("DELETE FROM expenses WHERE id = ?").bind(body.expenseId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     if (body.action === "create") {
       if (!body.tableName || !Array.isArray(body.items) || !body.items.length || !Number.isFinite(body.total) || !body.waiter) return Response.json({ error: "Table, items and waiter are required." }, { status: 400 });
       const result = await db.prepare("INSERT INTO orders (table_name, items, total, status, waiter, created_at) VALUES (?, ?, ?, 'kitchen', ?, ?)").bind(body.tableName, JSON.stringify(body.items), body.total, body.waiter, Date.now()).run();
-      return Response.json({ ok: true, orderId: result.meta.last_row_id });
+      return success({ ok: true, orderId: result.meta.last_row_id });
     }
     if (!body.orderId) return Response.json({ error: "Order is required." }, { status: 400 });
     if (body.action === "update_order") {
       if (!Array.isArray(body.items) || !body.items.length || !Number.isFinite(body.total) || body.total! < 1) return Response.json({ error: "Order needs at least one valid item." }, { status: 400 });
       const result = await db.prepare("UPDATE orders SET items = ?, total = ? WHERE id = ? AND status = 'kitchen'").bind(JSON.stringify(body.items), body.total, body.orderId).run();
-      return Response.json({ ok: true, result: result.meta });
+      return success({ ok: true, result: result.meta });
     }
     if (body.action === "cancel_order") {
       const current = await db.prepare("SELECT status FROM orders WHERE id = ?").bind(body.orderId).first<{ status: string }>();
       if (!current || current.status !== "kitchen") return Response.json({ error: "Only a new kitchen ticket can be cancelled." }, { status: 409 });
       await db.prepare("DELETE FROM orders WHERE id = ? AND status = 'kitchen'").bind(body.orderId).run();
-      return Response.json({ ok: true });
+      return success({ ok: true });
     }
     const expected: Record<string, string> = { cooking: "kitchen", ready: "cooking", served: "ready", completed: "served" };
     const current = await db.prepare("SELECT status FROM orders WHERE id = ?").bind(body.orderId).first<{ status: string }>();
@@ -152,7 +164,7 @@ export async function POST(request: Request) {
     } else {
       await db.prepare("UPDATE orders SET status = ? WHERE id = ?").bind(body.action, body.orderId).run();
     }
-    return Response.json({ ok: true });
+    return success({ ok: true });
   } catch (error) {
     console.error("Snacksy state update failed", error);
     return Response.json({ error: "Could not save that change. Please try again." }, { status: 503 });

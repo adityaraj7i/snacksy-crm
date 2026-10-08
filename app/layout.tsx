@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import ServiceWorkerRegistration from "./service-worker-registration";
 
 export const metadata: Metadata = {
   title: "Snacksy Cafe Operations",
@@ -36,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en-NP">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><ServiceWorkerRegistration />{children}</body>
     </html>
   );
 }
