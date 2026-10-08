@@ -2,10 +2,11 @@ import { getD1 } from "@/db";
 import { del } from "@vercel/blob";
 
 const defaultTables = [
-  ["T1", 2, "Window"], ["T2", 2, "Window"], ["T3", 4, "Main floor"],
-  ["T4", 4, "Main floor"], ["T5", 4, "Main floor"], ["T6", 6, "Family"],
-  ["T7", 2, "Patio"], ["T8", 2, "Patio"], ["T9", 4, "Patio"],
+  ["T1", 2, "Hall"], ["T2", 2, "Hall"], ["T3", 4, "Cabin"],
+  ["T4", 4, "Cabin"], ["T5", 4, "Cabin"], ["T6", 6, "Outside"],
+  ["T7", 2, "Outside"], ["T8", 2, "Outside"], ["T9", 4, "Outside"],
 ];
+const tableZones = ["Hall", "Cabin", "Outside"] as const;
 const defaultMenu = [
   ["Iced Latte", "Coffee", 320], ["Cappuccino", "Coffee", 280], ["Americano", "Coffee", 220],
   ["Chicken Momo", "Kitchen", 380], ["Club Sandwich", "Kitchen", 420], ["Veg Chowmein", "Kitchen", 290],
@@ -33,6 +34,7 @@ export async function GET() {
     const db = getD1();
     const existing = await db.prepare("SELECT COUNT(*) AS count FROM cafe_tables").first<{ count: number }>();
     if (!existing?.count) await db.batch(defaultTables.map(table => db.prepare("INSERT INTO cafe_tables (name, seats, zone) VALUES (?, ?, ?)").bind(...table)));
+    await db.prepare("UPDATE cafe_tables SET zone = CASE zone WHEN 'Window' THEN 'Hall' WHEN 'Main floor' THEN 'Cabin' WHEN 'Family' THEN 'Outside' WHEN 'Patio' THEN 'Outside' ELSE zone END WHERE zone IN ('Window', 'Main floor', 'Family', 'Patio')").run();
     const menuExisting = await db.prepare("SELECT COUNT(*) AS count FROM menu_items").first<{ count: number }>();
     if (!menuExisting?.count) await db.batch(defaultMenu.map(item => db.prepare("INSERT INTO menu_items (name, category, price, available) VALUES (?, ?, ?, 1)").bind(...item)));
     const staffExisting = await db.prepare("SELECT COUNT(*) AS count FROM staff_members").first<{ count: number }>();
@@ -84,8 +86,9 @@ export async function POST(request: Request) {
       return Response.json({ ok: true });
     }
     if (body.action === "add_table") {
-      if (!body.tableName?.trim() || !body.zone?.trim() || !Number.isInteger(body.seats) || body.seats! < 1 || body.seats! > 20) return Response.json({ error: "Enter a table name, zone and 1–20 seats." }, { status: 400 });
-      await db.prepare("INSERT INTO cafe_tables (name, seats, zone) VALUES (?, ?, ?)").bind(body.tableName.trim().toUpperCase(), body.seats, body.zone.trim()).run();
+      const zone = body.zone;
+      if (!body.tableName?.trim() || !zone || !tableZones.includes(zone as typeof tableZones[number]) || !Number.isInteger(body.seats) || body.seats! < 1 || body.seats! > 20) return Response.json({ error: "Enter a table name, Hall/Cabin/Outside category and 1–20 seats." }, { status: 400 });
+      await db.prepare("INSERT INTO cafe_tables (name, seats, zone) VALUES (?, ?, ?)").bind(body.tableName.trim().toUpperCase(), body.seats, zone).run();
       return Response.json({ ok: true });
     }
     if (body.action === "remove_table") {
