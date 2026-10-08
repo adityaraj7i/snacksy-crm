@@ -27,20 +27,7 @@ const defaultStaff: Staff[] = [
   withRoleInfo({id:1,role:"owner",name:"Ayush"}), withRoleInfo({id:2,role:"waiter",name:"Rohan"}),
   withRoleInfo({id:3,role:"chef",name:"Maya"}), withRoleInfo({id:4,role:"cashier",name:"Nima"}),
 ];
-const demoMenu: MenuItem[] = [
-  { id: 1, name: "Iced Latte", category: "Coffee", price: 320, available: true }, { id: 2, name: "Cappuccino", category: "Coffee", price: 280, available: true },
-  { id: 3, name: "Americano", category: "Coffee", price: 220, available: true }, { id: 4, name: "Chicken Momo", category: "Kitchen", price: 380, available: true },
-  { id: 5, name: "Club Sandwich", category: "Kitchen", price: 420, available: true }, { id: 6, name: "Veg Chowmein", category: "Kitchen", price: 290, available: true },
-  { id: 7, name: "Croissant", category: "Bakery", price: 230, available: true }, { id: 8, name: "Lemon Soda", category: "Drinks", price: 210, available: true },
-];
 const tableZones = ["Hall", "Cabin", "Outside"] as const;
-const demoTables: CafeTable[] = Array.from({ length: 9 }, (_, i) => ({ id: i + 1, name: `T${i + 1}`, seats: i === 5 ? 6 : i < 2 || i > 5 ? 2 : 4, zone: i < 2 ? "Hall" : i < 5 ? "Cabin" : "Outside" }));
-const demoOrders: Order[] = [
-  { id: 1048, tableName: "T4", items: JSON.stringify([{ name: "Iced Latte", price: 320, qty: 2 }, { name: "Chicken Momo", price: 380, qty: 1 }]), total: 1020, status: "cooking", waiter: "Rohan", createdAt: Date.now() - 9 * 60000 },
-  { id: 1047, tableName: "T2", items: JSON.stringify([{ name: "Club Sandwich", price: 420, qty: 1 }, { name: "Lemon Soda", price: 210, qty: 1 }]), total: 630, status: "ready", waiter: "Rohan", createdAt: Date.now() - 17 * 60000 },
-  { id: 1046, tableName: "T7", items: JSON.stringify([{ name: "Cappuccino", price: 280, qty: 2 }]), total: 560, status: "served", waiter: "Rohan", createdAt: Date.now() - 28 * 60000 },
-  { id: 1045, tableName: "T1", items: JSON.stringify([{ name: "Chicken Momo", price: 380, qty: 1 }]), total: 380, status: "completed", waiter: "Rohan", paymentMethod: "QR", createdAt: Date.now() - 80 * 60000, completedAt: Date.now() - 52 * 60000 },
-];
 
 const roleViews: Record<Role, View[]> = { owner: ["overview", "tables", "kitchen", "billing", "menu", "stock", "reports", "staff"], waiter: ["tables"], chef: ["kitchen"], cashier: ["overview", "tables", "kitchen", "billing", "menu", "stock", "reports"] };
 const canUseCashierControls = (role: Role) => role === "cashier" || role === "owner";
@@ -73,7 +60,7 @@ const saveExcelCsv = async (content:string,filename:string) => {
 
 export default function Home() {
   const [user, setUser] = useState<Staff | null>(null); const [view, setView] = useState<View>("overview");
-  const [tables, setTables] = useState<CafeTable[]>(demoTables); const [orders, setOrders] = useState<Order[]>(demoOrders); const [menuItems, setMenuItems] = useState<MenuItem[]>(demoMenu); const [staffMembers,setStaffMembers]=useState<Staff[]>(defaultStaff); const [inventoryItems,setInventoryItems]=useState<InventoryItem[]>([]); const [expenses,setExpenses]=useState<Expense[]>([]);
+  const [tables, setTables] = useState<CafeTable[]>([]); const [orders, setOrders] = useState<Order[]>([]); const [menuItems, setMenuItems] = useState<MenuItem[]>([]); const [staffMembers,setStaffMembers]=useState<Staff[]>(defaultStaff); const [inventoryItems,setInventoryItems]=useState<InventoryItem[]>([]); const [expenses,setExpenses]=useState<Expense[]>([]);
   const [selectedTable, setSelectedTable] = useState<CafeTable | null>(null); const [mobileMenu, setMobileMenu] = useState(false);
   const [loading, setLoading] = useState(false); const [notice, setNotice] = useState("");
   const [alertsOpen,setAlertsOpen]=useState(false), [soundOn,setSoundOn]=useState(true);
@@ -86,7 +73,7 @@ export default function Home() {
     billing:[{frequency:440,at:0,duration:.18,wave:"square"},{frequency:330,at:.24,duration:.25,wave:"square"}],
   };const start=ctx.currentTime+.03;patterns[kind].forEach(tone=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain(),from=start+tone.at,to=from+tone.duration;oscillator.type=tone.wave;oscillator.frequency.setValueAtTime(tone.frequency,from);gain.gain.setValueAtTime(.0001,from);gain.gain.exponentialRampToValueAtTime(.13,from+.018);gain.gain.exponentialRampToValueAtTime(.0001,to);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(from);oscillator.stop(to+.02)})},[primeAudio,soundOn]);
 
-    const loadState = useCallback(async () => { try { const res = await fetch("/api/cafe", { cache: "no-store" }); if (!res.ok) return; const data = await res.json() as { tables?: CafeTable[]; orders?: Order[]; menuItems?: MenuItem[]; staffMembers?: Omit<Staff,"label"|"note">[]; inventoryItems?:InventoryItem[]; expenses?:Expense[] }; setTables(data.tables?.length ? data.tables : demoTables); setOrders(data.orders ?? []); setMenuItems(data.menuItems?.length ? data.menuItems : demoMenu); setInventoryItems(data.inventoryItems??[]);setExpenses(data.expenses??[]);if(data.staffMembers?.length)setStaffMembers(data.staffMembers.map(member=>withRoleInfo(member))); } catch { /* local preview keeps representative data */ } }, []);
+    const loadState = useCallback(async () => { try { const res = await fetch("/api/cafe", { cache: "no-store" }); if (!res.ok) return; const data = await res.json() as { tables?: CafeTable[]; orders?: Order[]; menuItems?: MenuItem[]; staffMembers?: Omit<Staff,"label"|"note">[]; inventoryItems?:InventoryItem[]; expenses?:Expense[] }; setTables(data.tables ?? []); setOrders(data.orders ?? []); setMenuItems(data.menuItems ?? []); setInventoryItems(data.inventoryItems??[]);setExpenses(data.expenses??[]);if(data.staffMembers?.length)setStaffMembers(data.staffMembers.map(member=>withRoleInfo(member))); } catch { /* Keep the last shared state during a temporary connection failure. */ } }, []);
   // Initial remote state is loaded once after the client mounts.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadState(); }, [loadState]);

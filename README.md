@@ -27,7 +27,7 @@ The project builds as a standard Next.js application.
    - `INITIAL_CASHIER_PIN`
 5. Redeploy the project.
 
-The database schema, starter tables, menu items, and first staff accounts are created automatically on the first request. After login, the owner can change staff names and PINs from the Staff screen.
+The database schema and first staff accounts are created automatically on the first request. Tables, menu items, stock, expenses, and orders start empty; add the café's real setup after login. Empty lists stay empty rather than being repopulated with demo data. The owner can change staff names and PINs from the Staff screen.
 
 Never commit real PINs, database credentials, Blob tokens, or local `.env` files.
 
