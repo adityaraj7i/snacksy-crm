@@ -1,4 +1,4 @@
-const CACHE_NAME = "snacksy-shell-v1.0.3";
+const CACHE_NAME = "snacksy-shell-v1.0.4";
 const SHELL_FILES = [
   "/",
   "/manifest.webmanifest",
