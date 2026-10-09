@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Snacksy Cafe Operations",
-    short_name: "Snacksy Cafe",
-    description: "Table ordering, kitchen workflow, billing, stock and reports for Snacksy Cafe & Restro.",
+    name: "SNACKSY Cafe & Restro Operations",
+    short_name: "SNACKSY",
+    description: "Table ordering, kitchen workflow, billing, stock and reports for SNACKSY Cafe & Restro.",
     start_url: "/",
     scope: "/",
     display: "standalone",

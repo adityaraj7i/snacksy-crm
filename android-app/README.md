@@ -1,4 +1,4 @@
-# Snacksy Cafe Android app
+# SNACKSY Cafe & Restro Android app
 
 Native Android WebView shell for the live Snacksy CRM at `https://snacksycrm-nine.vercel.app/`.
 

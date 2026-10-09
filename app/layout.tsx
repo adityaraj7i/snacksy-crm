@@ -3,22 +3,22 @@ import "./globals.css";
 import ServiceWorkerRegistration from "./service-worker-registration";
 
 export const metadata: Metadata = {
-  title: "Snacksy Cafe Operations",
-  description: "Role-based table ordering, kitchen workflow, billing and owner reports for Snacksy Cafe & Restro.",
-  applicationName: "Snacksy Cafe",
+  title: "SNACKSY Cafe & Restro Operations",
+  description: "Role-based table ordering, kitchen workflow, billing and owner reports for SNACKSY Cafe & Restro.",
+  applicationName: "SNACKSY Cafe & Restro",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Snacksy Cafe",
+    title: "SNACKSY Cafe & Restro",
     statusBarStyle: "black-translucent",
   },
   other: {
     "apple-mobile-web-app-capable": "yes",
   },
   icons: {
-    icon: [{ url: "/snacksy-favicon.svg?v=3", type: "image/svg+xml", sizes: "any" }],
-    shortcut: "/snacksy-favicon.svg?v=3",
-    apple: [{ url: "/snacksy-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/snacksy-favicon.png?v=4", type: "image/png", sizes: "64x64" }],
+    shortcut: "/snacksy-favicon.png?v=4",
+    apple: [{ url: "/snacksy-apple-touch-icon.png?v=4", sizes: "180x180", type: "image/png" }],
   },
 };
 

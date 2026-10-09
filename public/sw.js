@@ -1,8 +1,9 @@
-const CACHE_NAME = "snacksy-shell-v1.0.4";
+const CACHE_NAME = "snacksy-shell-v1.0.5";
 const SHELL_FILES = [
   "/",
   "/manifest.webmanifest",
   "/snacksy-logo.png",
+  "/snacksy-favicon.png",
   "/snacksy-icon-192.png",
   "/snacksy-icon-512.png",
   "/snacksy-icon-maskable-512.png",
@@ -89,7 +90,7 @@ self.addEventListener("fetch", event => {
       try {
         return await cacheResponse(request, await fetch(request));
       } catch {
-        return (await caches.match(request)) || (await caches.match("/")) || new Response("Snacksy is unavailable offline until it has been opened online once.", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
+        return (await caches.match(request)) || (await caches.match("/")) || new Response("SNACKSY is unavailable offline until it has been opened online once.", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
       }
     })());
     return;

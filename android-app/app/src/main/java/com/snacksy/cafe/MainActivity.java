@@ -116,7 +116,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " SnacksyCafeAndroid/1.0.3");
+        settings.setUserAgentString(settings.getUserAgentString() + " SnacksyCafeAndroid/1.0.4");
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(target, false);
@@ -205,8 +205,8 @@ public class MainActivity extends Activity {
     private void showOfflinePage(WebView view) {
         String html = "<!doctype html><html><meta name='viewport' content='width=device-width,initial-scale=1'>" +
                 "<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f2ed;color:#302925;font-family:Arial;text-align:center;padding:28px;box-sizing:border-box}" +
-                ".card{background:#fffdfa;border:1px solid #e4ddd7;border-radius:18px;padding:34px 24px;max-width:340px;box-shadow:0 16px 40px #66544c18}h1{font-size:26px;margin:0 0 10px}p{color:#817670;line-height:1.5}button{border:0;border-radius:10px;background:#66544c;color:white;padding:13px 22px;font-weight:bold}</style>" +
-                "<body><div class='card'><h1>SNACKSY</h1><p>No saved offline copy is available yet. Connect to Wi-Fi or mobile data, then open the app once to enable offline use.</p><button onclick=\"location.href='" + APP_URL + "'\">Retry</button></div></body></html>";
+                ".card{background:#fffdfa;border:1px solid #e4ddd7;border-radius:18px;padding:28px 24px 34px;max-width:340px;box-shadow:0 16px 40px #66544c18}.card img{display:block;width:180px;height:180px;object-fit:contain;margin:0 auto 8px}h1{font-size:26px;margin:0 0 10px}p{color:#817670;line-height:1.5}button{border:0;border-radius:10px;background:#66544c;color:white;padding:13px 22px;font-weight:bold}</style>" +
+                "<body><div class='card'><img src='file:///android_res/drawable/snacksy_brand_logo.png' alt='SNACKSY Cafe &amp; Restro'><h1>SNACKSY</h1><p>No saved offline copy is available yet. Connect to Wi-Fi or mobile data, then open the app once to enable offline use.</p><button onclick=\"location.href='" + APP_URL + "'\">Retry</button></div></body></html>";
         view.loadDataWithBaseURL(APP_URL, html, "text/html", "UTF-8", null);
     }
 
@@ -242,8 +242,8 @@ public class MainActivity extends Activity {
         public void printPage() {
             runOnUiThread(() -> {
                 PrintManager manager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                PrintDocumentAdapter adapter = source.createPrintDocumentAdapter("Snacksy receipt");
-                manager.print("Snacksy receipt", adapter, null);
+                PrintDocumentAdapter adapter = source.createPrintDocumentAdapter("SNACKSY receipt");
+                manager.print("SNACKSY receipt", adapter, null);
             });
         }
 
